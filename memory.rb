@@ -116,10 +116,10 @@ end
 
 
 class RandomAccessMemory
-  def initialize
-    @selector = SelectorDecoder.new(8)
+  def initialize(size)
+    @selector = SelectorDecoder.new(size)
     @data = []
-    8.times do |i|
+    size.times do |i|
       @data.push(OneBitMemory.new)
     end
   end
@@ -129,17 +129,31 @@ class RandomAccessMemory
       @data[i].data = data_in
       @data[i].edge_triggerd_run(d)
     end
-    puts "#{@data.map{|d| d.r_o.state}}"
   end
   def get(address)
     @selector.select(@data.map{|d| d.r_o}, address)
   end
 end
 
-ram = RandomAccessMemory.new()
-ram.set([Bit.one,Bit.zero,Bit.one],Bit.one,Bit.one)
-ram.set([Bit.one,Bit.one,Bit.zero],Bit.one,Bit.one)
-puts "#{ram.get([Bit.one,Bit.zero,Bit.zero]).state}"
+class RandomAccessMemoryArray
+  def initialize(size,bit_size)
+    @ram = []
+    bit_size.times do
+      @ram.push(RandomAccessMemory.new(size))
+    end
+  end
+  def set(address, data, write)
+    @ram.each_with_index{|r,i| r.set(address, data[i], write)}
+  end
+  def get(address)
+    @ram.map{|r| r.get(address)}
+  end
+end
+
+ram = RandomAccessMemoryArray.new(8,8)
+ram.set([Bit.one,Bit.zero,Bit.one],[Bit.one,Bit.zero,Bit.one,Bit.zero,Bit.one,Bit.zero,Bit.one,Bit.zero],Bit.one)
+ram.set([Bit.one,Bit.one,Bit.zero],[Bit.one,Bit.one,Bit.zero,Bit.zero,Bit.one,Bit.one,Bit.zero,Bit.zero],Bit.one)
+puts "#{ram.get([Bit.one,Bit.one,Bit.zero]).map{|m| m.state}}"
 
 
 # Gate is a relay powered switch
