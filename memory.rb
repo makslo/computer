@@ -80,7 +80,7 @@ class EightBitMemory
   end
 end
 
-class Selector
+class SelectorDecoder
   def initialize(size)
     @size = size
   end
@@ -88,27 +88,58 @@ class Selector
     if data.length==@size
       result = []
       out = data.each_with_index do |d,i|
-        a_ar = i.to_s(2).split("").reverse
-        (address.size-a_ar.size).times{|t| a_ar.push("0")}
-        ar = []
-        a_ar.each_with_index{|a,j| a=="1" ? ar.push(address[j]) : ar.push(Gate.not(address[j]))}
-      
+        ar = bit_select(i, address)
         result.push(Gate.and(Gate.and(d,ar[0]),Gate.and(ar[1],ar[2])))
       end
       result.inject(Bit.zero){|s,r| Gate.or(s,r)}
-      
     end
   end
-end
-
-s = Selector.new(8)
-puts s.select([Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.one,Bit.zero,Bit.zero],[Bit.one,Bit.zero,Bit.one]).state
-
-class RandomAccessMemory
-  def eight_to_one
-    
+  def decode(write, address)
+    result = []
+    @size.times do |i|
+      ar = bit_select(i, address)
+      result.push(Gate.and(Gate.and(write,ar[0]),Gate.and(ar[1],ar[2])))
+    end
+    result
+  end
+  def bit_select(i, address)
+    ar = []
+    a_ar = i.to_s(2).split("").reverse
+    (address.size-a_ar.size).times{|t| a_ar.push("0")}
+    a_ar.each_with_index{|a,j| a=="1" ? ar.push(address[j]) : ar.push(Gate.not(address[j]))}
+    return ar
   end
 end
+# s = SelectorDecoder.new(8)
+# puts s.select([Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.one,Bit.zero,Bit.zero],[Bit.one,Bit.zero,Bit.one]).state
+# puts s.decode(Bit.one,[Bit.zero,Bit.one,Bit.zero])
+
+
+class RandomAccessMemory
+  def initialize
+    @selector = SelectorDecoder.new(8)
+    @data = []
+    8.times do |i|
+      @data.push(OneBitMemory.new)
+    end
+  end
+  def set(address, data_in, write)
+    w = @selector.decode(write, address)
+    w.each_with_index do |d,i|
+      @data[i].data = data_in
+      @data[i].edge_triggerd_run(d)
+    end
+    puts "#{@data.map{|d| d.r_o.state}}"
+  end
+  def get(address)
+    @selector.select(@data.map{|d| d.r_o}, address)
+  end
+end
+
+ram = RandomAccessMemory.new()
+ram.set([Bit.one,Bit.zero,Bit.one],Bit.one,Bit.one)
+ram.set([Bit.one,Bit.one,Bit.zero],Bit.one,Bit.one)
+puts "#{ram.get([Bit.one,Bit.zero,Bit.zero]).state}"
 
 
 # Gate is a relay powered switch
