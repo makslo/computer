@@ -39,7 +39,7 @@ end
 class Oscillator
   attr_accessor :o
   def initialize
-    @o = Bit.zero
+    @o = Bit.one
   end
   def run
     @o = Gate.not(@o)
@@ -47,36 +47,41 @@ class Oscillator
 end
 
 class FreqDivider
-  def initialize
-    @o = Oscillator.new
-    @m1 = OneBitMemory.new(@o.o)
-    @m2 = OneBitMemory.new(@m1.s_o)
-    @m3 = OneBitMemory.new(@m2.s_o)
+  def initialize(size)
+    @size = size
+    @dividers = [Oscillator.new]
+    (@size-1).times do |i|
+      i==0 ? @dividers.push(OneBitMemory.new(@dividers[i].o)) : @dividers.push(OneBitMemory.new(@dividers[i].s_o))
+    end
   end
   def run
-    puts "#{Adder.to_number([Gate.not(@o.o),@m1.r_o,@m2.r_o,@m3.r_o])} #{[Gate.not(@o.o).state,@m1.r_o.state,@m2.r_o.state,@m3.r_o.state]}"
-    @o.run
-    @m1.data = @m1.s_o
-    @m1.edge_triggerd_run(@o.o)
-    @m2.data = @m2.s_o
-    @m2.edge_triggerd_run(@m1.s_o)
-    @m3.data = @m3.s_o
-    @m3.edge_triggerd_run(@m2.s_o)
+    # puts "#{Adder.to_number([Gate.not(@o.o),@m1.r_o,@m2.r_o,@m3.r_o])} #{[Gate.not(@o.o).state,@m1.r_o.state,@m2.r_o.state,@m3.r_o.state]}"
+    @dividers[0].run
+    (@size-1).times do |i|
+      d = @dividers[i+1]
+      d.data = d.s_o
+      i==0 ? d.edge_triggerd_run(@dividers[i].o) : d.edge_triggerd_run(@dividers[i].s_o)
+    end
+  end
+  def get_count
+    [Gate.not(@dividers[0].o)]+@dividers[1..-1].map{|d| d.r_o}
   end
 end
 
-class EightBitMemory
-  def set(input,w)
-    if input.is_a?(Array) && input.size==8
-      @bits = []
-      8.times do |i|
-        bit = OneBitMemory.new(w)
-        bit.data = input[i]
-        bit.run
-        @bits.push(bit)
-      end
-      puts "#{@bits.map{|b| b.r_o.state}}"
+class Latch
+  def initialize(size)
+    @size = size
+    @data = []
+    @size.times{|t| @data.push(OneBitMemory.new(Bit.zero))}
+  end
+  def set(data,w)
+    @data.each_with_index do |d,i|
+      d.data = data[i]
+      d.edge_triggerd_run(w)
     end
+  end
+  def get
+    @data
   end
 end
 
@@ -149,11 +154,15 @@ class RandomAccessMemoryArray
     @ram.map{|r| r.get(address)}
   end
 end
+# exp = 10
+# f = FreqDivider.new(exp)
+# ram = RandomAccessMemoryArray.new(2**exp,8)
+# adr = Adder.to_bits(7)
+# (exp-adr.length).times{|t| adr.push(Bit.zero)}
+# ram.set(adr,[Bit.one,Bit.zero,Bit.one,Bit.zero,Bit.one,Bit.zero,Bit.one,Bit.zero],Bit.one)
+# 8.times{|t| puts "#{ram.get(f.get_count).map{|r| r.state}}";f.run}
 
-ram = RandomAccessMemoryArray.new(8,8)
-ram.set([Bit.one,Bit.zero,Bit.one],[Bit.one,Bit.zero,Bit.one,Bit.zero,Bit.one,Bit.zero,Bit.one,Bit.zero],Bit.one)
-ram.set([Bit.one,Bit.one,Bit.zero],[Bit.one,Bit.one,Bit.zero,Bit.zero,Bit.one,Bit.one,Bit.zero,Bit.zero],Bit.one)
-puts "#{ram.get([Bit.one,Bit.one,Bit.zero]).map{|m| m.state}}"
+
 
 
 # Gate is a relay powered switch
