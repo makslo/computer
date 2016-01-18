@@ -1,47 +1,104 @@
 require "./memory"
 
 class Computer
+  def initialize(size,exp)
+    @size = size
+    @adder = Adder.new(size)
+    @latch = Latch.new(size)
+    @exp = exp
+    @ram = RandomAccessMemoryArray.new(2**exp,size)
+    @code = RandomAccessMemoryArray.new(2**exp,size)
+    @freqdiv = FreqDivider.new(exp)
+  end
 
+  def set_data(data,offset)
+    set(data,offset,@ram)
+  end
+
+  def set_code(data,offset)
+    set(data,offset,@code)
+  end
+
+  def set(data,offset,target)
+    data.each_with_index do |d,i|
+      adr = Adder.to_bits(i+offset)
+      (@exp-adr.length).times{|t| adr.push(Bit.zero)}
+      target.set(adr,d,Bit.one)
+    end
+  end
+
+  def read(amt)
+    amt.times do |i|
+      puts "#{@ram.get(get_address(i)).map{|r| r.state}} #{i}"
+    end
+  end
+
+  def load
+    @latch.set(@latch.get,Bit.zero)
+    @latch.set(@ram.get(@freqdiv.get_count),Bit.one)
+  end
+
+  def store
+    @ram.set(@freqdiv.get_count,@latch.get,Bit.one)
+  end
+
+  def add
+    @latch.set(@latch.get,Bit.zero)
+    @latch.set(@adder.add(@latch.get,@ram.get(@freqdiv.get_count)),Bit.one)
+  end
+
+  def get_address(int)
+    adr = Adder.to_bits(int)
+    (@exp-adr.length).times{|t| adr.push(Bit.zero)}
+    adr
+  end
+  def run(int)
+    int.times do |i|
+      code = Adder.to_number(@code.get(@freqdiv.get_count))
+      case code
+      when 10
+        load
+      when 11
+        store
+      when 20
+        add
+      else
+      end
+      @freqdiv.run
+    end
+  end
 end
-size = 8
-c = Computer.new
 
-a = Adder.new(size)
-l = Latch.new(size)
+size = 8
+c = Computer.new(8,10)
+
 data = []
 data.push([Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 data.push([Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 data.push([Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
+data.push([Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 data.push([Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
+data.push([Bit.one,Bit.zero,Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 data.push([Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
+data.push([Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 
-# l.set(a.add(v1,v2),Bit.one)
-# l.set(a.add(v1,v2),Bit.zero)
-# l.set(a.add(l.get,v3),Bit.one)
-# l.set(a.add(l.get,v3),Bit.zero)
-# l.set(a.add(l.get,v4),Bit.one)
-# l.set(a.add(l.get,v4),Bit.zero)
-# l.set(a.add(l.get,v5),Bit.one)
-# l.set(a.add(l.get,v5),Bit.zero)
+c.set_data(data,0)
 
-# puts "#{l.get.map{|m| m.state}}"
+code = []
+code.push(c.get_address(10))
+code.push(c.get_address(20))
+code.push(c.get_address(20))
+code.push(c.get_address(11))
+code.push(c.get_address(10))
+code.push(c.get_address(20))
+code.push(c.get_address(20))
+code.push(c.get_address(11))
 
-exp = 10
-f = FreqDivider.new(exp)
-ram = RandomAccessMemoryArray.new(2**exp,size)
+c.set_code(code,0)
 
-data.each_with_index do |d,i|
-  adr = Adder.to_bits(i+10)
-  (exp-adr.length).times{|t| adr.push(Bit.zero)}
-  ram.set(adr,d,Bit.one)
-  # puts "#{ram.get(adr).map{|m| m.state}} #{Adder.to_number(adr)}"
-end
+c.run(20)
 
-20.times{|t| puts "#{ram.get(f.get_count).map{|r| r.state}} #{Adder.to_number(f.get_count)}";f.run}
-
-# adr = Adder.to_bits(2)
-# (exp-adr.length).times{|t| adr.push(Bit.zero)}
-# puts "#{ram.get(adr).map{|m| m.state}}"
+puts "#{c.read(20)}"
 
 # Code
 # 10 Load
