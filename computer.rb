@@ -33,18 +33,18 @@ class Computer
     end
   end
 
-  def load
+  def load(address)
     @latch.set(@latch.get,Bit.zero)
-    @latch.set(@ram.get(@freqdiv.get_count),Bit.one)
+    @latch.set(@ram.get(address),Bit.one)
   end
 
-  def store
-    @ram.set(@freqdiv.get_count,@latch.get,Bit.one)
+  def store(address)
+    @ram.set(address,@latch.get,Bit.one)
   end
 
-  def add
+  def add(address)
     @latch.set(@latch.get,Bit.zero)
-    @latch.set(@adder.add(@latch.get,@ram.get(@freqdiv.get_count)),Bit.one)
+    @latch.set(@adder.add(@latch.get,@ram.get(address)),Bit.one)
   end
 
   def get_address(int)
@@ -55,16 +55,21 @@ class Computer
   def run(int)
     int.times do |i|
       code = Adder.to_number(@code.get(@freqdiv.get_count))
+      @freqdiv.run
+      address_1 = @code.get(@freqdiv.get_count)
+      @freqdiv.run
+      address_2 = @code.get(@freqdiv.get_count)
+      @freqdiv.run
+      address = address_1+address_2
       case code
       when 10
-        load
+        load(address[0..@exp-1])
       when 11
-        store
+        store(address[0..@exp-1])
       when 20
-        add
+        add(address[0..@exp-1])
       else
       end
-      @freqdiv.run
     end
   end
 end
@@ -76,26 +81,41 @@ data = []
 data.push([Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 data.push([Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 data.push([Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
-data.push([Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 data.push([Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 data.push([Bit.one,Bit.zero,Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 data.push([Bit.one,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
+data.push([Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 data.push([Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero])
 
 c.set_data(data,0)
 
 code = []
 code.push(c.get_address(10))
+code.push(c.get_address(0))
+code.push(c.get_address(0))
 code.push(c.get_address(20))
+code.push(c.get_address(1))
+code.push(c.get_address(0))
 code.push(c.get_address(20))
+code.push(c.get_address(2))
+code.push(c.get_address(0))
 code.push(c.get_address(11))
+code.push(c.get_address(6))
+code.push(c.get_address(0))
 code.push(c.get_address(10))
+code.push(c.get_address(3))
+code.push(c.get_address(0))
 code.push(c.get_address(20))
+code.push(c.get_address(4))
+code.push(c.get_address(0))
 code.push(c.get_address(20))
+code.push(c.get_address(5))
+code.push(c.get_address(0))
 code.push(c.get_address(11))
+code.push(c.get_address(7))
+code.push(c.get_address(0))
 
 c.set_code(code,0)
-
 c.run(20)
 
 puts "#{c.read(20)}"
