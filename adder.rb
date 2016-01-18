@@ -4,6 +4,9 @@
 require "./logic"
 
 class Adder
+  def initialize(size)
+    @size = size
+  end
   def self.to_bits(value)
     v = value
     bits = []
@@ -24,17 +27,17 @@ class Adder
     return result
   end
 
-  def self.half_adder(a,b)
+  def half_adder(a,b)
     [Gate.xor(a,b),Gate.and(a,b)]
   end
 
-  def self.full_adder(a,b,c)
+  def full_adder(a,b,c)
     half = half_adder(a,b)
     full = half_adder(c,half[0])
     [full[0],Gate.or(full[1],half[1])]
   end
 
-  def self.add_each(a1,a2)
+  def add_each(a1,a2)
     result = []
     c = Bit.zero
     a1.each_with_index do |a,i|
@@ -46,17 +49,15 @@ class Adder
     return result
   end
  
-  def self.add(val1,val2)
-    val1_array = Adder.to_bits(val1)
-    val2_array = Adder.to_bits(val2)
+  def add(val1_array,val2_array)
     if val1_array.size > val2_array.size
       result = add_each(val1_array,val2_array)
     else
       result = add_each(val2_array,val1_array)
     end
-    return to_number(result)
+    return result[0..@size-1]
   end
-  def self.subtract(val1,val2)
+  def subtract(val1,val2)
     val1_array = Adder.to_bits(val1>val2 ? val1 : val2)
     val2_array = Adder.to_bits(val1>val2 ? val2 : val1).map{|b| Gate.not(b)}
     val2_array.size

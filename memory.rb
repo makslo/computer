@@ -20,15 +20,15 @@ class OneBitMemory
   def get_s
     Gate.and(@data,@clock)
   end
-  def run
+  def run(clear=Bit.zero)
     # Have to run the gates a few times to stabilize
-    @r_o = Gate.nor(get_r,Gate.nor(get_s,@r_o))
+    @r_o = Gate.nor(Gate.or(get_r,clear),Gate.nor(get_s,@r_o))
     @s_o = Gate.nor(get_s,Gate.nor(get_r,@s_o))
   end
-  def edge_triggerd_run(clock)
+  def edge_triggerd_run(clock, clear=Bit.zero)
     if @clock.state == Bit.zero.state && clock.state == Bit.one.state
       @clock = clock
-      @r_o = Gate.nor(get_r,Gate.nor(get_s,@r_o))
+      @r_o = Gate.nor(Gate.or(get_r,clear),Gate.nor(get_s,@r_o))
       @s_o = Gate.nor(get_s,Gate.nor(get_r,@s_o))
     else
       @clock = clock
@@ -55,7 +55,6 @@ class FreqDivider
     end
   end
   def run
-    # puts "#{Adder.to_number([Gate.not(@o.o),@m1.r_o,@m2.r_o,@m3.r_o])} #{[Gate.not(@o.o).state,@m1.r_o.state,@m2.r_o.state,@m3.r_o.state]}"
     @dividers[0].run
     (@size-1).times do |i|
       d = @dividers[i+1]
@@ -74,14 +73,14 @@ class Latch
     @data = []
     @size.times{|t| @data.push(OneBitMemory.new(Bit.zero))}
   end
-  def set(data,w)
+  def set(data,w,clear=Bit.zero)
     @data.each_with_index do |d,i|
       d.data = data[i]
-      d.edge_triggerd_run(w)
+      d.edge_triggerd_run(w,clear)
     end
   end
   def get
-    @data
+    @data.map{|m| m.r_o}
   end
 end
 
@@ -94,7 +93,9 @@ class SelectorDecoder
       result = []
       out = data.each_with_index do |d,i|
         ar = bit_select(i, address)
-        result.push(Gate.and(Gate.and(d,ar[0]),Gate.and(ar[1],ar[2])))
+        r = Gate.and(d,ar[0])
+        (ar.size-1).times{|i| r=Gate.and(r,ar[i+1])}
+        result.push(r)
       end
       result.inject(Bit.zero){|s,r| Gate.or(s,r)}
     end
@@ -103,7 +104,9 @@ class SelectorDecoder
     result = []
     @size.times do |i|
       ar = bit_select(i, address)
-      result.push(Gate.and(Gate.and(write,ar[0]),Gate.and(ar[1],ar[2])))
+      r = Gate.and(write,ar[0])
+      (ar.size-1).times{|i| r=Gate.and(r,ar[i+1])}
+      result.push(r)
     end
     result
   end
@@ -130,9 +133,11 @@ class RandomAccessMemory
   end
   def set(address, data_in, write)
     w = @selector.decode(write, address)
-    w.each_with_index do |d,i|
+    # puts "#{w.map{|d| d.state}}"
+    # puts "#{w.size}"
+    w.each_with_index do |o,i|
       @data[i].data = data_in
-      @data[i].edge_triggerd_run(d)
+      @data[i].edge_triggerd_run(o)
     end
   end
   def get(address)
