@@ -41,6 +41,9 @@ class Oscillator
   def initialize
     @o = Bit.one
   end
+  def set(value)
+    @o = value
+  end
   def run
     @o = Gate.not(@o)
   end
@@ -60,6 +63,14 @@ class FreqDivider
       d = @dividers[i+1]
       d.data = d.s_o
       i==0 ? d.edge_triggerd_run(@dividers[i].o) : d.edge_triggerd_run(@dividers[i].s_o)
+    end
+  end
+  def set_count(values)
+    @dividers[0].set(Gate.not(values[0]))
+    values[1..-1].each_with_index do |d,i|
+      @dividers[i+1].r_o = values[i+1]
+      @dividers[i+1].s_o = Gate.not(values[i+1])
+      i==0 ? @dividers[i+1].clock=@dividers[i].o : @dividers[i+1].clock=@dividers[i].s_o
     end
   end
   def get_count
@@ -118,10 +129,6 @@ class SelectorDecoder
     return ar
   end
 end
-# s = SelectorDecoder.new(8)
-# puts s.select([Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.zero,Bit.one,Bit.zero,Bit.zero],[Bit.one,Bit.zero,Bit.one]).state
-# puts s.decode(Bit.one,[Bit.zero,Bit.one,Bit.zero])
-
 
 class RandomAccessMemory
   def initialize(size)
@@ -133,8 +140,6 @@ class RandomAccessMemory
   end
   def set(address, data_in, write)
     w = @selector.decode(write, address)
-    # puts "#{w.map{|d| d.state}}"
-    # puts "#{w.size}"
     w.each_with_index do |o,i|
       @data[i].data = data_in
       @data[i].edge_triggerd_run(o)
